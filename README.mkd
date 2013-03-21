@@ -17,12 +17,12 @@ Set a rss threshold. Kill the top process that has exceeded the threshold.
 Implementation
 --------------
 
-=== memorykiller
+### memorykiller
 
 A kernel module that sort process memory usage in ascending order.
 I use a linked list to store tasks in order.
 
-=== memorycosumer
+### memorycosumer
 
 A user-space process that consume some memory
 
