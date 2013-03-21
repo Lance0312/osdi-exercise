@@ -1,0 +1,28 @@
+Lab 4 - Memory Management
+=========================
+
+
+Part I
+------
+
+Dump the resident memory(RSS) usage of all processes, and sort in ascending order.
+
+
+Part II
+-------
+
+Set a rss threshold. Kill the top process that has exceeded the threshold.
+
+
+Implementation
+--------------
+
+=== memorykiller
+
+A kernel module that sort process memory usage in ascending order.
+I use a linked list to store tasks in order.
+
+=== memorycosumer
+
+A user-space process that consume some memory
+
