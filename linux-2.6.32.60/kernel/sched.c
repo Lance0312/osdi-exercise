@@ -5525,6 +5525,9 @@ void scheduler_tick(void)
 	perf_event_task_tick(curr, cpu);
 
 #ifdef CONFIG_SMP
+	printk("Number of processes of CPU %d: %lu\n", cpu, rq->nr_running);
+	printk("Current process of CPU %d: %s\n", cpu, rq->curr->comm);
+
 	rq->idle_at_tick = idle_cpu(cpu);
 	trigger_load_balance(rq, cpu);
 #endif
