@@ -25,6 +25,8 @@
 #define PAGE_SECTORS_SHIFT	(PAGE_SHIFT - SECTOR_SHIFT)
 #define PAGE_SECTORS		(1 << PAGE_SECTORS_SHIFT)
 
+int snapshot_flag = 0;
+
 /*
  * Each block ramdisk device has a radix_tree brd_pages of pages that stores
  * the pages containing the block device's contents. A brd page's ->index is
@@ -345,32 +347,42 @@ static int brd_direct_access (struct block_device *bdev, sector_t sector,
 static int brd_ioctl(struct block_device *bdev, fmode_t mode,
 			unsigned int cmd, unsigned long arg)
 {
-	int error;
+	int error = 0;
 	struct brd_device *brd = bdev->bd_disk->private_data;
 
-	if (cmd != BLKFLSBUF)
+	if (cmd != BLKFLSBUF && cmd != BLKSNAPSHOT && cmd != BLKROLLBACK)
 		return -ENOTTY;
 
 	/*
 	 * ram device BLKFLSBUF has special semantics, we want to actually
 	 * release and destroy the ramdisk data.
 	 */
-	mutex_lock(&bdev->bd_mutex);
-	error = -EBUSY;
-	if (bdev->bd_openers <= 1) {
-		/*
-		 * Invalidate the cache first, so it isn't written
-		 * back to the device.
-		 *
-		 * Another thread might instantiate more buffercache here,
-		 * but there is not much we can do to close that race.
-		 */
-		invalidate_bh_lrus();
-		truncate_inode_pages(bdev->bd_inode->i_mapping, 0);
-		brd_free_pages(brd);
-		error = 0;
+	if (cmd == BLKFLSBUF) {
+		mutex_lock(&bdev->bd_mutex);
+		error = -EBUSY;
+		if (bdev->bd_openers <= 1) {
+			/*
+			 * Invalidate the cache first, so it isn't written
+			 * back to the device.
+			 *
+			 * Another thread might instantiate more buffercache here,
+			 * but there is not much we can do to close that race.
+			 */
+			invalidate_bh_lrus();
+			truncate_inode_pages(bdev->bd_inode->i_mapping, 0);
+			brd_free_pages(brd);
+			error = 0;
+		}
+		mutex_unlock(&bdev->bd_mutex);
 	}
-	mutex_unlock(&bdev->bd_mutex);
+	else if (cmd == BLKSNAPSHOT) {
+		snapshot_flag = 1;
+		printk(KERN_INFO "snapshot hadlers, snapshot flag = %d\n", snapshot_flag);
+	}
+	else if (cmd == BLKROLLBACK) {
+		snapshot_flag = 0;
+		printk(KERN_INFO "rollback hadlers, snapshot flag = %d\n", snapshot_flag);
+	}
 
 	return error;
 }
@@ -564,6 +576,7 @@ static int __init brd_init(void)
 				  THIS_MODULE, brd_probe, NULL, NULL);
 
 	printk(KERN_INFO "brd: module loaded\n");
+	printk(KERN_INFO "brd: cyen modified version\n");
 	return 0;
 
 out_free:
