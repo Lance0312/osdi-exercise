@@ -56,7 +56,7 @@ struct brd_device {
 /*
  * Look up and return a brd's page for a given sector.
  */
-static struct page *brd_lookup_page(struct brd_device *brd, sector_t sector)
+static struct page *brd_lookup_page(struct brd_device *brd, sector_t sector, int is_write)
 {
 	pgoff_t idx;
 	struct page *page;
@@ -72,10 +72,27 @@ static struct page *brd_lookup_page(struct brd_device *brd, sector_t sector)
 	 * safe here (we don't have total exclusion from radix tree updates
 	 * here, only deletes).
 	 */
-	rcu_read_lock();
-	idx = sector >> PAGE_SECTORS_SHIFT; /* sector to page index */
-	page = radix_tree_lookup(&brd->brd_pages, idx);
-	rcu_read_unlock();
+	if (snapshot_flag == 1) {
+		rcu_read_lock();
+		idx = (sector | 0x11110000) >> PAGE_SECTORS_SHIFT; /* sector to shadow page index */
+		page = radix_tree_lookup(&brd->brd_pages, idx);
+		rcu_read_unlock();
+
+		if (is_write == 0) {
+			if (!page) {
+				rcu_read_lock();
+				idx = sector >> PAGE_SECTORS_SHIFT; /* sector to page index */
+				page = radix_tree_lookup(&brd->brd_pages, idx);
+				rcu_read_unlock();
+			}
+		}
+	}
+	else {
+		rcu_read_lock();
+		idx = sector >> PAGE_SECTORS_SHIFT; /* sector to page index */
+		page = radix_tree_lookup(&brd->brd_pages, idx);
+		rcu_read_unlock();
+	}
 
 	BUG_ON(page && page->index != idx);
 
@@ -93,7 +110,14 @@ static struct page *brd_insert_page(struct brd_device *brd, sector_t sector)
 	struct page *page;
 	gfp_t gfp_flags;
 
-	page = brd_lookup_page(brd, sector);
+	if (snapshot_flag == 1) {
+		page = brd_lookup_page(brd, sector, 1);
+		sector = sector | 0x11110000;
+	}
+	else {
+		page = brd_lookup_page(brd, sector, 0);
+	}
+
 	if (page)
 		return page;
 
@@ -203,7 +227,7 @@ static void copy_to_brd(struct brd_device *brd, const void *src,
 	size_t copy;
 
 	copy = min_t(size_t, n, PAGE_SIZE - offset);
-	page = brd_lookup_page(brd, sector);
+	page = brd_lookup_page(brd, sector, 0);
 	BUG_ON(!page);
 
 	dst = kmap_atomic(page, KM_USER1);
@@ -214,7 +238,7 @@ static void copy_to_brd(struct brd_device *brd, const void *src,
 		src += copy;
 		sector += copy >> SECTOR_SHIFT;
 		copy = n - copy;
-		page = brd_lookup_page(brd, sector);
+		page = brd_lookup_page(brd, sector, 0);
 		BUG_ON(!page);
 
 		dst = kmap_atomic(page, KM_USER1);
@@ -235,7 +259,7 @@ static void copy_from_brd(void *dst, struct brd_device *brd,
 	size_t copy;
 
 	copy = min_t(size_t, n, PAGE_SIZE - offset);
-	page = brd_lookup_page(brd, sector);
+	page = brd_lookup_page(brd, sector, 0);
 	if (page) {
 		src = kmap_atomic(page, KM_USER1);
 		memcpy(dst, src + offset, copy);
@@ -247,7 +271,7 @@ static void copy_from_brd(void *dst, struct brd_device *brd,
 		dst += copy;
 		sector += copy >> SECTOR_SHIFT;
 		copy = n - copy;
-		page = brd_lookup_page(brd, sector);
+		page = brd_lookup_page(brd, sector, 0);
 		if (page) {
 			src = kmap_atomic(page, KM_USER1);
 			memcpy(dst, src, copy);
