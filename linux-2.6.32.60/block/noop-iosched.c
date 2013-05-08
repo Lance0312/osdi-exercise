@@ -26,6 +26,7 @@ static int noop_dispatch(struct request_queue *q, int force)
 		rq = list_entry(nd->queue.next, struct request, queuelist);
 		list_del_init(&rq->queuelist);
 		elv_dispatch_sort(q, rq);
+		printk(KERN_INFO "dispatch %llu\n", blk_rq_pos(rq));
 		return 1;
 	}
 	return 0;
@@ -36,6 +37,7 @@ static void noop_add_request(struct request_queue *q, struct request *rq)
 	struct noop_data *nd = q->elevator->elevator_data;
 
 	list_add_tail(&rq->queuelist, &nd->queue);
+	printk(KERN_INFO "add %llu\n", blk_rq_pos(rq));
 }
 
 static int noop_queue_empty(struct request_queue *q)
