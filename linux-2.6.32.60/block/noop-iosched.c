@@ -35,9 +35,36 @@ static int noop_dispatch(struct request_queue *q, int force)
 static void noop_add_request(struct request_queue *q, struct request *rq)
 {
 	struct noop_data *nd = q->elevator->elevator_data;
+	struct list_head *entry;
+	sector_t last_pos = q->end_sector;
 
-	list_add_tail(&rq->queuelist, &nd->queue);
-	printk(KERN_INFO "add %llu\n", blk_rq_pos(rq));
+	if (list_empty(&nd->queue)) {
+		list_add(&rq->queuelist, &nd->queue);
+		printk(KERN_INFO "add %llu\n", blk_rq_pos(rq));
+	}
+	else {
+		list_for_each(entry, &nd->queue) {
+			struct request *pos = list_entry_rq(entry);
+
+			if (abs(blk_rq_pos(rq) - last_pos) < abs(blk_rq_pos(pos) - last_pos)) {
+				printk(KERN_INFO "%llu precedes %llu\n", blk_rq_pos(rq), blk_rq_pos(pos));
+				break;
+			}
+			else {
+				last_pos = blk_rq_pos(pos) + 1;
+				continue;
+			}
+		}
+		list_add_tail(&rq->queuelist, entry);
+		printk(KERN_INFO "add %llu\n", blk_rq_pos(rq));
+	}
+
+	printk("Internal queue:");
+	list_for_each(entry, &nd->queue) {
+		struct request *pos = list_entry_rq(entry);
+		printk("%llu ", blk_rq_pos(pos));
+	}
+	printk("\n");
 }
 
 static int noop_queue_empty(struct request_queue *q)

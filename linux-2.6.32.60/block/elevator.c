@@ -416,9 +416,7 @@ EXPORT_SYMBOL(elv_rb_find);
  */
 void elv_dispatch_sort(struct request_queue *q, struct request *rq)
 {
-	sector_t boundary;
 	struct list_head *entry;
-	int stop_flags;
 
 	if (q->last_merge == rq)
 		q->last_merge = NULL;
@@ -427,26 +425,8 @@ void elv_dispatch_sort(struct request_queue *q, struct request *rq)
 
 	q->nr_sorted--;
 
-	boundary = q->end_sector;
-	stop_flags = REQ_SOFTBARRIER | REQ_HARDBARRIER | REQ_STARTED;
 	list_for_each_prev(entry, &q->queue_head) {
-		struct request *pos = list_entry_rq(entry);
-
-		if (blk_discard_rq(rq) != blk_discard_rq(pos))
-			break;
-		if (rq_data_dir(rq) != rq_data_dir(pos))
-			break;
-		if (pos->cmd_flags & stop_flags)
-			break;
-		if (blk_rq_pos(rq) >= boundary) {
-			if (blk_rq_pos(pos) < boundary)
-				continue;
-		} else {
-			if (blk_rq_pos(pos) >= boundary)
-				break;
-		}
-		if (blk_rq_pos(rq) >= blk_rq_pos(pos))
-			break;
+		break;
 	}
 
 	list_add(&rq->queuelist, entry);
