@@ -27,17 +27,57 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/ramfs.h>
+#include <linux/string.h>
+#include <linux/proc_fs.h>
+#include <linux/vmalloc.h>
 
 #include "internal.h"
 
+extern char encrypt_flag[1024];
+static int key = 0x25;
+
 ssize_t my_do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos) {
-	printk(KERN_INFO "my_do_sync_read");
-	do_sync_read(filp, buf, len, ppos);
+	int i = 0;
+	ssize_t ret;
+
+	printk(KERN_INFO "my_do_sync_read %s", encrypt_flag);
+
+	ret = do_sync_read(filp, buf, len, ppos);
+
+	if (strncmp(encrypt_flag, "1", 1) == 0) {
+		for (i = 0;i < strlen(buf);i++) {
+			buf[i] = buf[i] ^ key;
+		}
+		printk(KERN_INFO "buf: %s", buf);
+	}
+
+
+	return ret;
 }
 
-ssize_t my_do_sync_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos) {
-	printk(KERN_INFO "my_do_sync_write");
-	do_sync_write(filp, buf, len, ppos);
+ssize_t my_do_sync_write(struct file *filp, char __user *buf, size_t len, loff_t *ppos) {
+	int i = 0;
+	char *tmp;
+	ssize_t ret;
+
+	printk(KERN_INFO "my_do_sync_write %s", encrypt_flag);
+
+	tmp = vmalloc(len);
+	memcpy(tmp, buf, len);
+
+	if (strncmp(encrypt_flag, "1", 1) == 0) {
+		for (i = 0;i < strlen(tmp);i++) {
+			buf[i] = buf[i] ^ key;
+		}
+		printk(KERN_INFO "buf: %s", buf);
+	}
+
+
+	ret = do_sync_write(filp, buf, len, ppos);
+
+	vfree(tmp);
+
+	return ret;
 }
 
 const struct address_space_operations ramfs_aops = {

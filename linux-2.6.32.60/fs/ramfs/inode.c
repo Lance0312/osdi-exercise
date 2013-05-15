@@ -41,7 +41,7 @@
 
 #define RAMFS_DEFAULT_MODE	0755
 
-static char encrypt_flag[1024] = {0};
+char encrypt_flag[1024] = {0};
 static int flag_size = 0;
 
 static const struct super_operations ramfs_ops;

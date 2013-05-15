@@ -14,4 +14,4 @@ extern const struct address_space_operations ramfs_aops;
 extern const struct inode_operations ramfs_file_inode_operations;
 
 extern ssize_t my_do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
-extern ssize_t my_do_sync_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos);
+extern ssize_t my_do_sync_write(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
