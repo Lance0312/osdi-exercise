@@ -35,10 +35,14 @@
 #include <linux/sched.h>
 #include <linux/parser.h>
 #include <linux/magic.h>
+#include <linux/proc_fs.h>
 #include <asm/uaccess.h>
 #include "internal.h"
 
 #define RAMFS_DEFAULT_MODE	0755
+
+static char encrypt_flag[1024] = {0};
+static int flag_size = 0;
 
 static const struct super_operations ramfs_ops;
 static const struct inode_operations ramfs_dir_inode_operations;
@@ -50,6 +54,39 @@ static struct backing_dev_info ramfs_backing_dev_info = {
 			  BDI_CAP_MAP_DIRECT | BDI_CAP_MAP_COPY |
 			  BDI_CAP_READ_MAP | BDI_CAP_WRITE_MAP | BDI_CAP_EXEC_MAP,
 };
+
+static int my_read(char *page, char **start, off_t off, int count, int *eof, void *data) {
+	int ret;
+
+	printk(KERN_INFO "my_read");
+
+	if (off > 0) {
+		ret = 0;
+	}
+	else {
+		memcpy(page, encrypt_flag, flag_size);
+		ret = flag_size;
+	}
+
+	return ret;
+}
+
+static int my_write(struct file *file, const char __user *buffer, unsigned long count, void *data) {
+	printk(KERN_INFO "my_write");
+
+	flag_size = count;
+
+	if (flag_size > 1024) {
+		flag_size = 1024;
+	}
+
+	if (copy_from_user(encrypt_flag, buffer, flag_size)) {
+		printk(KERN_INFO "Cannot write to kernel-space buffer");
+		return -1;
+	}
+
+	return flag_size;
+}
 
 struct inode *ramfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 {
@@ -293,11 +330,25 @@ static struct file_system_type rootfs_fs_type = {
 
 static int __init init_ramfs_fs(void)
 {
+	struct proc_dir_entry *ent;
+
+	ent = create_proc_entry("encrypt", 0644, NULL);
+        if (!ent) {
+		printk(KERN_INFO "Cannot create /proc/encrypt");
+		return -1;
+	}
+
+	ent->read_proc = my_read;
+	ent->write_proc = my_write;
+
+	encrypt_flag[0] = '0';
+
 	return register_filesystem(&ramfs_fs_type);
 }
 
 static void __exit exit_ramfs_fs(void)
 {
+	remove_proc_entry("encrypt", NULL);
 	unregister_filesystem(&ramfs_fs_type);
 }
 
