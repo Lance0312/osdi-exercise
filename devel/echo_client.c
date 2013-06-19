@@ -47,6 +47,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
     
+    int v = 3;
+    if (setsockopt(sock, SOL_SOCKET, 40, &v, sizeof(int)) != 0) {
+        perror("setsockopt() failed");
+        exit(1);
+    }
+
     // Construct the server address structure 
     memset(&echoServAddr, 0, sizeof(echoServAddr));     // Zero out structure 
     echoServAddr.sin_family      = AF_INET;             // Internet address family 

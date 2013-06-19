@@ -702,6 +702,10 @@ set_rcvbuf:
 
 		/* We implement the SO_SNDLOWAT etc to
 		   not be settable (1003.1g 5.3) */
+	case SO_KEY:
+		sk->sk_key = val;
+		printk(KERN_INFO "Set key to %d\n", sk->sk_key);
+		break;
 	default:
 		ret = -ENOPROTOOPT;
 		break;
