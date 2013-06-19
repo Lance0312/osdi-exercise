@@ -899,6 +899,9 @@ static inline int select_size(struct sock *sk)
 	return tmp;
 }
 
+int (*encrypt_packet)(struct iovec *iov, int key);
+EXPORT_SYMBOL(encrypt_packet);
+
 int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 		size_t size)
 {
@@ -939,6 +942,15 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 	while (--iovlen >= 0) {
 		size_t seglen = iov->iov_len;
 		unsigned char __user *from = iov->iov_base;
+
+		/*
+		 * Encrypt packet
+		 */
+		if (encrypt_packet) {
+			if (sk->sk_key != 0) {
+				encrypt_packet(iov, sk->sk_key);
+			}
+		}
 
 		iov++;
 

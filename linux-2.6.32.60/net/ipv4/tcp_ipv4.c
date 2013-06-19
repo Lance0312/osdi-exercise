@@ -1556,6 +1556,9 @@ csum_err:
 	goto discard;
 }
 
+int (*decrypt_packet)(struct sk_buff *skb, int key);
+EXPORT_SYMBOL(decrypt_packet);
+
 /*
  *	From tcp_input.c
  */
@@ -1604,6 +1607,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
 	if (!sk)
 		goto no_tcp_socket;
+
+	/*
+	 * Decrypt packet
+	 */
+	if (decrypt_packet) {
+		if (sk->sk_key != 0) {
+			decrypt_packet(skb, sk->sk_key);
+		}
+	}
 
 process:
 	if (sk->sk_state == TCP_TIME_WAIT)
